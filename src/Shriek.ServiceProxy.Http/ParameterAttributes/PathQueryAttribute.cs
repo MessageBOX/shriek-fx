@@ -130,9 +130,9 @@ namespace Shriek.ServiceProxy.Http.ParameterAttributes
         {
             var binder = new TemplateBinder(
                 UrlEncoder.Default,
-                new DefaultObjectPoolProvider().Create(new UriBuilderContextPooledObjectPolicy(UrlEncoder.Default)),
+                new DefaultObjectPoolProvider().Create(new UriBuilderContextPooledObjectPolicy()),
                 TemplateParser.Parse(template),
-                null
+                new RouteValueDictionary()
                 );
 
             // Act & Assert

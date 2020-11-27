@@ -45,19 +45,18 @@ namespace Shriek.ServiceProxy.Http.Contexts
         /// <summary>
         /// 缓存字典
         /// </summary>
-        private static readonly ConcurrentDictionary<MethodInfo, AspectContext> cache;
+        private static readonly ConcurrentCache<MethodInfo, AspectContext> cache;
 
         /// <summary>
         /// Castle相关上下文
         /// </summary>
         static AspectContext()
         {
-            cache = new ConcurrentDictionary<MethodInfo, AspectContext>(new IInvocationComparer());
+            cache = new ConcurrentCache<MethodInfo, AspectContext>(new IInvocationComparer());
         }
 
         /// <summary>
-        /// 从拦截内容获得
-        /// 使用缓存
+        /// 从拦截内容获得 使用缓存
         /// </summary>
         /// <param name="method">拦截方法</param>
         /// <returns></returns>
@@ -144,12 +143,8 @@ namespace Shriek.ServiceProxy.Http.Contexts
 
             if (!parameterDescriptor.Attributes.Any())
             {
-                if (parameterDescriptor.IsUriParameterType || (methodAttrs.Any(x => x is HttpGetAttribute) && parameterDescriptor.ParameterType.IsUriParameterTypeArray()))
+                if (methodAttrs.Any(x => x is HttpGetAttribute) || parameterDescriptor.IsUriParameterType || parameterDescriptor.ParameterType.IsUriParameterTypeArray())
                     parameterDescriptor.Attributes = new[] { new PathQueryAttribute() };
-                //else if (parameterDescriptor.ParameterType.IsUriParameterTypeArray())
-                //    parameterDescriptor.Attributes = new[] { new JsonContentAttribute() };
-                //else
-                //    parameterDescriptor.Attributes = new[] { new FormContentAttribute() };
                 else
                     parameterDescriptor.Attributes = new[] { new JsonContentAttribute() };
             }

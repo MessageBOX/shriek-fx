@@ -9,14 +9,13 @@ using Newtonsoft.Json;
 using Shriek.Samples.WebApiProxy.Models;
 using Shriek.ServiceProxy.Http;
 using Shriek.ServiceProxy.Http.Server;
-using Shriek.ServiceProxy.Http.Tracer.Butterfly;
 using Shriek.ServiceProxy.Socket;
 using Shriek.ServiceProxy.Socket.Server;
-using Butterfly.Client;
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace Shriek.Samples.WebApiProxy
 {
-    internal class Program
+    internal static class Program
     {
         public static void Main(string[] args)
         {
@@ -39,22 +38,31 @@ namespace Shriek.Samples.WebApiProxy
                         options.AddService<ISimpleInterface>();
                     });
 
-                    services.AddMvcCore().AddJsonFormatters();
-                    services.AddButterflyForShriek(opt =>
-                        {
-                            opt.CollectorUrl = "http://localhost:9618";
-                            opt.Service = "shriek.sample.backend";
-                        });
+                    services.AddMvcCore().AddJsonFormatters().AddApiExplorer();
+
+                    //services.AddButterflyForShriek(opt =>
+                    //{
+                    //    opt.CollectorUrl = "http://localhost:9618";
+                    //    opt.Service = "shriek.sample.backend";
+                    //});
 
                     services.AddWebApiProxyServer(opt =>
-                            {
-                                opt.AddWebApiProxy<SampleApiProxy>();
-                                opt.AddWebApiProxy<Samples.Services.SampleApiProxy>();
-                                opt.AddService<Samples.Services.ITestService>();
-                            });
+                    {
+                        opt.AddWebApiProxy<SampleApiProxy>();
+                        opt.AddWebApiProxy<Samples.Services.SampleApiProxy>();
+                        opt.AddService<Samples.Services.ITestService>();
+                    });
 
                     //服务里注册代理客户端
                     services.AddWebApiProxy(opt => { opt.AddWebApiProxy<SampleApiProxy>("http://localhost:8081"); });
+
+                    services.AddRouteAnalyzer();
+
+                    services.AddSwaggerGen(opt =>
+                    {
+                        opt.SwaggerDoc("v1", new Info { Title = "Shriek sample API", Version = "v1" });
+                        opt.CustomSchemaIds(x => x.FullName);
+                    });
                 })
                 .Configure(app =>
                 {
@@ -69,18 +77,45 @@ namespace Shriek.Samples.WebApiProxy
                             throw ex;
                         }
                     });
-                    app.UseMvc();
+
+                    var virtualPath = "";
+
+                    app.UseSwagger(c =>
+                    {
+                        c.PreSerializeFilters.Add((swaggerDoc, httpReq) => swaggerDoc.BasePath = virtualPath);
+                    });
+
+                    app.UseSwaggerUI(c =>
+                    {
+                        c.SwaggerEndpoint(virtualPath + "/swagger/v1/swagger.json", "Shriek sample API");
+                        c.RoutePrefix = string.Empty;
+                    });
+
+                    app.UseMvc(routes =>
+                    {
+                        routes.MapRoute(
+                            name: "default",
+                            template: "{controller=Home}/{action=Index}/{id?}");
+
+                        routes.MapRouteAnalyzer("/routes"); // Add
+                    });
+
+                    //var routeAnalyzer = app.ApplicationServices.GetService<IRouteAnalyzer>();
+                    //foreach (var info in routeAnalyzer.GetAllRouteInformations())
+                    //{
+                    //    Console.WriteLine(info);
+                    //}
                 })
                 .Build()
                 .Start();
 
             var service = new ServiceCollection();
 
-            service.AddButterflyForShriekConsole(opt =>
-            {
-                opt.CollectorUrl = "http://localhost:9618";
-                opt.Service = "shriek.sample.console";
-            });
+            //service.AddButterflyForShriekConsole(opt =>
+            //{
+            //    opt.CollectorUrl = "http://localhost:9618";
+            //    opt.Service = "shriek.sample.console";
+            //});
 
             service.AddWebApiProxy(opt =>
             {
@@ -102,7 +137,7 @@ namespace Shriek.Samples.WebApiProxy
             var tcpService = provider.GetService<ISimpleInterface>();
             Console.ReadKey();
 
-            var createRsult = todoService.Create(new Todo() { Name = "james" }).Result;
+            var createRsult = todoService.Create(new Todo() { Name = "james", AggregateId = Guid.NewGuid(), Desception = "hhhh", FinishTime = DateTime.Now }).Result;
             Console.WriteLine(JsonConvert.SerializeObject(createRsult));
 
             var result = todoService.Get(1).Result;
